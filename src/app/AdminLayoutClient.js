@@ -1,0 +1,131 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+
+export default function AdminLayoutClient({ user, children }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
+
+  const storefrontUrl = process.env.NEXT_PUBLIC_STOREFRONT_URL || 'http://localhost:3000';
+
+  const navItems = [
+    {
+      href: '/',
+      label: 'Dashboard',
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+      ),
+    },
+    {
+      href: '/categories',
+      label: 'Categories',
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/products',
+      label: 'Products',
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <path d="M16 10a4 4 0 0 1-8 0" />
+        </svg>
+      ),
+    },
+  ];
+
+  const isActive = (href) => {
+    if (href === '/') return pathname === '/';
+    return pathname.startsWith(href);
+  };
+
+  return (
+    <div className="admin-layout">
+      {/* Sidebar */}
+      <aside className="admin-sidebar">
+        <div className="admin-sidebar-brand">
+          <div className="admin-sidebar-brand-icon">B2B</div>
+          <div>
+            <span>Brand 2 Brand</span>
+            <small>Admin Panel</small>
+          </div>
+        </div>
+
+        <nav className="admin-sidebar-nav">
+          <div className="admin-nav-label">Menu</div>
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`admin-nav-link ${isActive(item.href) ? 'active' : ''}`}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+
+          <div className="admin-nav-label">Store</div>
+          <a href={storefrontUrl} className="admin-nav-link" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            View Storefront
+          </a>
+        </nav>
+
+        <div className="admin-sidebar-footer">
+          <button className="admin-logout-btn" onClick={handleLogout}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="admin-main">
+        <header className="admin-topbar">
+          <div className="admin-topbar-title">
+            {pathname === '/' && 'Dashboard'}
+            {pathname.startsWith('/categories') && 'Categories'}
+            {pathname.startsWith('/products') && 'Products'}
+          </div>
+          <div className="admin-topbar-actions">
+            <div className="admin-topbar-user">
+              <div className="admin-topbar-user-avatar">
+                {user?.email?.charAt(0).toUpperCase() || 'A'}
+              </div>
+              <span>{user?.email || 'Admin'}</span>
+            </div>
+          </div>
+        </header>
+        <div className="admin-content">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
