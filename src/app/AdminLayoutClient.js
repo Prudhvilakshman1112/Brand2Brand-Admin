@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -8,6 +9,24 @@ export default function AdminLayoutClient({ user, children }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Close sidebar when route changes (user navigated)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  // Prevent body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -59,8 +78,23 @@ export default function AdminLayoutClient({ user, children }) {
 
   return (
     <div className="admin-layout">
+      {/* Mobile Sidebar Overlay */}
+      <div
+        className={`admin-sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* Sidebar */}
-      <aside className="admin-sidebar">
+      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
+        {/* Mobile close button */}
+        <button
+          className="admin-sidebar-close"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close sidebar"
+        >
+          ✕
+        </button>
+
         <div className="admin-sidebar-brand">
           <div className="admin-sidebar-brand-icon">B2B</div>
           <div>
@@ -108,6 +142,19 @@ export default function AdminLayoutClient({ user, children }) {
       {/* Main */}
       <div className="admin-main">
         <header className="admin-topbar">
+          {/* Hamburger button - visible only on mobile */}
+          <button
+            className="admin-hamburger"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+
           <div className="admin-topbar-title">
             {pathname === '/' && 'Dashboard'}
             {pathname.startsWith('/categories') && 'Categories'}

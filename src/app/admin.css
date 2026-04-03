@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════
    Brand 2 Brand — Admin Dashboard CSS
    Completely isolated from storefront styles.
+   Fully mobile responsive.
    ═══════════════════════════════════════════ */
 
 /* ── Variables ── */
@@ -32,6 +33,7 @@
   font-family: var(--admin-font);
   font-size: 14px;
   line-height: 1.5;
+  overflow-x: hidden;
 }
 
 .admin-layout *, .admin-layout *::before, .admin-layout *::after {
@@ -96,6 +98,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  overflow-y: auto;
 }
 
 .admin-nav-label {
@@ -141,6 +144,46 @@
   border-top: 1px solid var(--admin-border);
 }
 
+/* ── Mobile Sidebar Close Button ── */
+.admin-sidebar-close {
+  display: none;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  background: var(--admin-surface-hover);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  color: var(--admin-text);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  z-index: 101;
+  transition: all 0.2s;
+}
+
+.admin-sidebar-close:hover {
+  background: var(--admin-danger);
+  border-color: var(--admin-danger);
+  color: #fff;
+}
+
+/* ── Mobile Sidebar Overlay ── */
+.admin-sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 99;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
 /* ── Main Content ── */
 .admin-main {
   flex: 1;
@@ -148,6 +191,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-width: 0;
 }
 
 /* ── Topbar ── */
@@ -162,12 +206,14 @@
   position: sticky;
   top: 0;
   z-index: 50;
+  gap: 12px;
 }
 
 .admin-topbar-title {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .admin-topbar-actions {
@@ -182,6 +228,14 @@
   gap: 8px;
   font-size: 13px;
   color: var(--admin-text-muted);
+  min-width: 0;
+}
+
+.admin-topbar-user span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
 }
 
 .admin-topbar-user-avatar {
@@ -195,12 +249,40 @@
   color: #fff;
   font-weight: 700;
   font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* ── Hamburger Button ── */
+.admin-hamburger {
+  display: none;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  color: var(--admin-text);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.admin-hamburger:hover {
+  background: var(--admin-surface-hover);
+  border-color: var(--admin-text-muted);
+}
+
+.admin-hamburger svg {
+  width: 20px;
+  height: 20px;
 }
 
 /* ── Content Area ── */
 .admin-content {
   padding: 28px;
   flex: 1;
+  min-width: 0;
 }
 
 /* ── Stat Cards ── */
@@ -277,9 +359,17 @@
   font-weight: 700;
 }
 
+/* ── Responsive table scroll container ── */
+.admin-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 600px;
 }
 
 .admin-table th {
@@ -315,6 +405,7 @@
   border-radius: 6px;
   object-fit: cover;
   background: var(--admin-border);
+  flex-shrink: 0;
 }
 
 /* ── Buttons ── */
@@ -437,6 +528,13 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+
+/* ── Product Form Grid (used in new/edit pages) ── */
+.admin-product-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
 }
 
 /* ── Tags Input ── */
@@ -612,6 +710,7 @@
   font-family: var(--admin-font);
   font-size: 13px;
   width: 240px;
+  max-width: 100%;
   transition: border-color 0.2s;
 }
 
@@ -646,6 +745,7 @@
   padding: 16px 20px;
   cursor: pointer;
   transition: background 0.2s;
+  gap: 12px;
 }
 
 .admin-category-card-header:hover {
@@ -658,6 +758,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .admin-category-card-content {
@@ -672,6 +774,7 @@
   padding: 10px 0;
   border-bottom: 1px solid var(--admin-border);
   font-size: 13px;
+  gap: 8px;
 }
 
 .admin-subcategory-item:last-child {
@@ -753,6 +856,7 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.4);
   z-index: 1000;
   animation: admin-toast-in 0.3s ease;
+  max-width: calc(100vw - 48px);
 }
 
 @keyframes admin-toast-in {
@@ -781,29 +885,6 @@
 
 @keyframes admin-spin {
   to { transform: rotate(360deg); }
-}
-
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  .admin-sidebar {
-    transform: translateX(-100%);
-  }
-
-  .admin-sidebar.open {
-    transform: translateX(0);
-  }
-
-  .admin-main {
-    margin-left: 0;
-  }
-
-  .admin-form-row {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 /* ── Logout button ── */
@@ -838,6 +919,7 @@
   cursor: pointer;
   transition: background 0.2s;
   border: none;
+  flex-shrink: 0;
 }
 
 .admin-toggle.active {
@@ -858,4 +940,380 @@
 
 .admin-toggle.active::after {
   transform: translateX(16px);
+}
+
+/* ── Page title bar (used in new/edit pages) ── */
+.admin-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-page-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* ── Mobile Card Layout — hidden on desktop, shown on mobile ── */
+.admin-mobile-cards {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — Tablet (max 1024px)
+   ═══════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .admin-product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — Mobile (max 768px)
+   ═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* ── Sidebar: hide by default, show on toggle ── */
+  .admin-sidebar {
+    transform: translateX(-100%);
+  }
+
+  .admin-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .admin-sidebar-close {
+    display: flex;
+  }
+
+  .admin-sidebar-overlay.visible {
+    display: block;
+  }
+
+  /* ── Main: no sidebar offset ── */
+  .admin-main {
+    margin-left: 0;
+  }
+
+  /* ── Show hamburger ── */
+  .admin-hamburger {
+    display: flex;
+  }
+
+  /* ── Topbar: compact ── */
+  .admin-topbar {
+    padding: 0 16px;
+    height: 56px;
+  }
+
+  .admin-topbar-title {
+    font-size: 16px;
+  }
+
+  /* ── Hide email text on mobile ── */
+  .admin-topbar-user span {
+    display: none;
+  }
+
+  /* ── Content: tighter padding ── */
+  .admin-content {
+    padding: 16px;
+  }
+
+  /* ── Stat cards: 2 columns, compact ── */
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .admin-stat-card {
+    padding: 16px;
+  }
+
+  .admin-stat-card-value {
+    font-size: 24px;
+  }
+
+  .admin-stat-card-icon {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 10px;
+  }
+
+  .admin-stat-card-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* ── Table wrapper ── */
+  .admin-table-wrapper {
+    border-radius: var(--admin-radius);
+  }
+
+  .admin-table-header {
+    padding: 12px 16px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-table-header > div {
+    flex-wrap: wrap;
+  }
+
+  .admin-search input {
+    width: 100%;
+  }
+
+  /* ── HIDE table on mobile, SHOW cards ── */
+  .admin-table-scroll {
+    display: none;
+  }
+
+  .admin-mobile-cards {
+    display: block;
+  }
+
+  /* ── Mobile Product Card Styles ── */
+  .admin-mobile-card {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--admin-border);
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    transition: background 0.15s;
+  }
+
+  .admin-mobile-card:last-child {
+    border-bottom: none;
+  }
+
+  .admin-mobile-card:active {
+    background: var(--admin-surface-hover);
+  }
+
+  .admin-mobile-card-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: var(--admin-border);
+    flex-shrink: 0;
+  }
+
+  .admin-mobile-card-thumb-placeholder {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: var(--admin-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--admin-text-muted);
+    flex-shrink: 0;
+  }
+
+  .admin-mobile-card-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .admin-mobile-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--admin-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+
+  .admin-mobile-card-subtitle {
+    font-size: 12px;
+    color: var(--admin-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 6px;
+  }
+
+  .admin-mobile-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .admin-mobile-card-price {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--admin-text);
+  }
+
+  .admin-mobile-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .admin-mobile-card-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* ── Forms: single column ── */
+  .admin-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── Category card: compact ── */
+  .admin-category-card-header {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+
+  .admin-category-card-header h4 {
+    font-size: 14px;
+  }
+
+  .admin-category-card-content {
+    padding: 0 16px 12px;
+  }
+
+  /* ── Image preview: smaller grid ── */
+  .admin-image-preview-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+  }
+
+  .admin-image-upload {
+    padding: 24px 16px;
+  }
+
+  /* ── Mobile: always show remove button on images ── */
+  .admin-image-preview-remove {
+    opacity: 1;
+  }
+
+  /* ── Login card: compact on mobile ── */
+  .admin-login-card {
+    padding: 28px 20px;
+  }
+
+  .admin-login-card h1 {
+    font-size: 20px;
+  }
+
+  /* ── Toast: mobile position ── */
+  .admin-toast {
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    text-align: center;
+  }
+
+  /* ── Empty state: compact ── */
+  .admin-empty {
+    padding: 40px 16px;
+  }
+
+  /* ── Buttons: slightly larger tap targets ── */
+  .admin-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .admin-btn-sm {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  /* ── Prevent iOS zoom on inputs ── */
+  .admin-form-input,
+  .admin-form-select,
+  .admin-form-textarea {
+    font-size: 16px;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — Small phones (max 480px)
+   ═══════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .admin-content {
+    padding: 12px;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .admin-stat-card {
+    padding: 12px;
+  }
+
+  .admin-stat-card-value {
+    font-size: 20px;
+  }
+
+  .admin-stat-card-label {
+    font-size: 10px;
+  }
+
+  .admin-topbar {
+    padding: 0 12px;
+  }
+
+  .admin-topbar-title {
+    font-size: 14px;
+  }
+
+  .admin-table-header {
+    padding: 10px 12px;
+  }
+
+  .admin-mobile-card {
+    padding: 12px;
+  }
+
+  .admin-mobile-card-thumb,
+  .admin-mobile-card-thumb-placeholder {
+    width: 48px;
+    height: 48px;
+  }
+
+  .admin-mobile-card-title {
+    font-size: 13px;
+  }
+
+  .admin-image-preview-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+}
+
+/* ── Viewport meta helper: prevent auto-zoom ── */
+@media (hover: none) and (pointer: coarse) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }

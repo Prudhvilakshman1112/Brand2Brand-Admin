@@ -85,72 +85,117 @@ export default async function AdminDashboardPage() {
         <div className="admin-table-header">
           <h3>Recent Products</h3>
         </div>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Image</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Price</th>
-              <th>Badge</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recentProducts?.map((p) => {
-              const thumbImage = p.product_images
-                ?.sort((a, b) => a.display_order - b.display_order)?.[0];
-              return (
-                <tr key={p.id}>
-                  <td>
-                    {thumbImage ? (
-                      <img
-                        src={thumbImage.image_url}
-                        alt={p.name}
-                        className="admin-table-thumb"
-                      />
-                    ) : (
-                      <div className="admin-table-thumb" style={{
-                        background: 'var(--admin-border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '10px',
-                        color: 'var(--admin-text-muted)',
-                      }}>
-                        N/A
-                      </div>
-                    )}
+
+        {/* Desktop table view */}
+        <div className="admin-table-scroll">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Image</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Badge</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentProducts?.map((p) => {
+                const thumbImage = p.product_images
+                  ?.sort((a, b) => a.display_order - b.display_order)?.[0];
+                return (
+                  <tr key={p.id}>
+                    <td>
+                      {thumbImage ? (
+                        <img
+                          src={thumbImage.image_url}
+                          alt={p.name}
+                          className="admin-table-thumb"
+                        />
+                      ) : (
+                        <div className="admin-table-thumb" style={{
+                          background: 'var(--admin-border)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '10px',
+                          color: 'var(--admin-text-muted)',
+                        }}>
+                          N/A
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{p.name}</td>
+                    <td style={{ color: 'var(--admin-text-muted)' }}>
+                      {p.subcategories?.categories?.name} &rsaquo; {p.subcategories?.name}
+                    </td>
+                    <td>&#8377;{p.price?.toLocaleString()}</td>
+                    <td>
+                      {p.badge ? (
+                        <span className="admin-badge admin-badge-blue">{p.badge}</span>
+                      ) : (
+                        <span style={{ color: 'var(--admin-text-muted)' }}>&mdash;</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`admin-badge ${p.is_active ? 'admin-badge-green' : 'admin-badge-red'}`}>
+                        {p.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {(!recentProducts || recentProducts.length === 0) && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--admin-text-muted)' }}>
+                    No products yet. Add your first product to get started.
                   </td>
-                  <td style={{ fontWeight: 600 }}>{p.name}</td>
-                  <td style={{ color: 'var(--admin-text-muted)' }}>
-                    {p.subcategories?.categories?.name} &rsaquo; {p.subcategories?.name}
-                  </td>
-                  <td>&#8377;{p.price?.toLocaleString()}</td>
-                  <td>
-                    {p.badge ? (
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile card view */}
+        <div className="admin-mobile-cards">
+          {recentProducts?.map((p) => {
+            const thumbImage = p.product_images
+              ?.sort((a, b) => a.display_order - b.display_order)?.[0];
+            return (
+              <div key={p.id} className="admin-mobile-card">
+                {thumbImage ? (
+                  <img
+                    src={thumbImage.image_url}
+                    alt={p.name}
+                    className="admin-mobile-card-thumb"
+                  />
+                ) : (
+                  <div className="admin-mobile-card-thumb-placeholder">N/A</div>
+                )}
+                <div className="admin-mobile-card-body">
+                  <div className="admin-mobile-card-title">{p.name}</div>
+                  <div className="admin-mobile-card-subtitle">
+                    {p.subcategories?.categories?.name} › {p.subcategories?.name}
+                  </div>
+                  <div className="admin-mobile-card-meta">
+                    <span className="admin-mobile-card-price">₹{p.price?.toLocaleString()}</span>
+                    {p.badge && (
                       <span className="admin-badge admin-badge-blue">{p.badge}</span>
-                    ) : (
-                      <span style={{ color: 'var(--admin-text-muted)' }}>&mdash;</span>
                     )}
-                  </td>
-                  <td>
                     <span className={`admin-badge ${p.is_active ? 'admin-badge-green' : 'admin-badge-red'}`}>
                       {p.is_active ? 'Active' : 'Inactive'}
                     </span>
-                  </td>
-                </tr>
-              );
-            })}
-            {(!recentProducts || recentProducts.length === 0) && (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--admin-text-muted)' }}>
-                  No products yet. Add your first product to get started.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {(!recentProducts || recentProducts.length === 0) && (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--admin-text-muted)', fontSize: '13px' }}>
+              No products yet. Add your first product to get started.
+            </div>
+          )}
+        </div>
       </div>
     </>
   );

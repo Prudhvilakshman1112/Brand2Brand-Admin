@@ -83,12 +83,12 @@ export default function AdminEditProductPage({ params }) {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Edit Product</h2>
+      <div className="admin-page-header">
+        <h2>Edit Product</h2>
         <button className="admin-btn admin-btn-secondary" onClick={() => router.back()}>Back</button>
       </div>
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+        <div className="admin-product-grid">
           <div>
             <div className="admin-table-wrapper" style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '20px' }}>Product Details</h3>

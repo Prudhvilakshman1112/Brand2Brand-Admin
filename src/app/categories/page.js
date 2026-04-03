@@ -75,14 +75,14 @@ export default function AdminCategoriesPage() {
 
   return (
     <>
-      <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+      <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
         <input
           type="text"
           className="admin-form-input"
           placeholder="New category name..."
           value={newCatName}
           onChange={(e) => setNewCatName(e.target.value)}
-          style={{ maxWidth: '300px' }}
+          style={{ flex: '1 1 200px', minWidth: '0' }}
           id="new-category-input"
         />
         <button type="submit" className="admin-btn admin-btn-primary" id="add-category-btn">
