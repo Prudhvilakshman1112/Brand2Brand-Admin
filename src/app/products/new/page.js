@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { compressImage, formatBytes } from '@/lib/compressImage';
 
 // ── Size presets by subcategory keyword ─────────────────────────────────────
 function getSizePreset(subcategoryName) {
@@ -46,6 +47,7 @@ export default function AdminNewProductPage() {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [selectedSubName, setSelectedSubName] = useState('');
 
   const [form, setForm] = useState({
@@ -100,17 +102,44 @@ export default function AdminNewProductPage() {
     if (v && !colors.includes(v)) { setColors(prev => [...prev, v]); setCustomColorInput(''); }
   };
 
-  const handleCoverSelected = (e) => {
+  const handleCoverSelected = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setCoverImage({ file, preview: URL.createObjectURL(file) });
     e.target.value = '';
+    setCompressing(true);
+    try {
+      const result = await compressImage(file);
+      setCoverImage({
+        file:           result.file,
+        preview:        URL.createObjectURL(result.file),
+        originalSize:   result.originalSize,
+        compressedSize: result.compressedSize,
+      });
+    } finally {
+      setCompressing(false);
+    }
   };
 
-  const handleVariantsSelected = (e) => {
+  const handleVariantsSelected = async (e) => {
     const files = Array.from(e.target.files);
-    setVariantImages(prev => [...prev, ...files.map(f => ({ file: f, preview: URL.createObjectURL(f), colorTag: '' }))]);
     e.target.value = '';
+    if (!files.length) return;
+    setCompressing(true);
+    try {
+      const results = await Promise.all(files.map(f => compressImage(f)));
+      setVariantImages(prev => [
+        ...prev,
+        ...results.map(r => ({
+          file:           r.file,
+          preview:        URL.createObjectURL(r.file),
+          colorTag:       '',
+          originalSize:   r.originalSize,
+          compressedSize: r.compressedSize,
+        })),
+      ]);
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -350,11 +379,21 @@ export default function AdminNewProductPage() {
               {/* Cover Image */}
               <div className="admin-image-slot-group">
                 <div className="admin-image-slot-label">🖼️ Cover Image <span className="admin-form-label-hint">main display photo</span></div>
-                {coverImage ? (
+                {compressing && !coverImage ? (
+                  <div className="admin-image-compressing">
+                    <span className="admin-spinner" style={{ width: 24, height: 24, borderWidth: 2 }} />
+                    <p>Optimising image…</p>
+                  </div>
+                ) : coverImage ? (
                   <div className="admin-image-preview-single">
                     <img src={coverImage.preview} alt="Cover" />
                     <button className="admin-image-remove-btn" onClick={() => setCoverImage(null)} type="button">×</button>
                     <div className="admin-image-badge">Cover</div>
+                    {coverImage.originalSize && (
+                      <div className="admin-compress-badge">
+                        {formatBytes(coverImage.originalSize)} → {formatBytes(coverImage.compressedSize)} ✓
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="admin-image-drop-zone" onClick={() => coverInputRef.current?.click()}>
@@ -364,7 +403,7 @@ export default function AdminNewProductPage() {
                       <polyline points="21 15 16 10 5 21" />
                     </svg>
                     <p>Click to upload cover</p>
-                    <small>JPG, PNG up to 5MB</small>
+                    <small>Any size — auto-optimised to ≤ 200 KB</small>
                   </div>
                 )}
                 <input type="file" ref={coverInputRef} onChange={handleCoverSelected} accept="image/*" style={{ display: 'none' }} />
@@ -380,7 +419,7 @@ export default function AdminNewProductPage() {
                       <line x1="12" y1="8" x2="12" y2="16" />
                       <line x1="8" y1="12" x2="16" y2="12" />
                     </svg>
-                    <p>Add variant images</p>
+                    <p>{compressing ? 'Optimising…' : 'Add variant images'}</p>
                   </div>
                   <input type="file" ref={variantInputRef} onChange={handleVariantsSelected} accept="image/*" multiple style={{ display: 'none' }} />
                   {variantImages.map((img, i) => (
@@ -388,6 +427,11 @@ export default function AdminNewProductPage() {
                       <img src={img.preview} alt={`Variant ${i + 1}`} />
                       <button className="admin-image-remove-btn" onClick={() => setVariantImages(prev => prev.filter((_, idx) => idx !== i))} type="button">×</button>
                       <div className="admin-image-badge">{i + 1}</div>
+                      {img.originalSize && (
+                        <div className="admin-compress-badge">
+                          {formatBytes(img.originalSize)} → {formatBytes(img.compressedSize)} ✓
+                        </div>
+                      )}
                       {colors.length > 0 && (
                         <select className="admin-image-color-tag"
                           value={img.colorTag}
@@ -406,9 +450,11 @@ export default function AdminNewProductPage() {
 
         {/* ── Submit ── */}
         <button type="submit" className="admin-btn admin-btn-primary admin-btn-submit"
-          disabled={loading} id="save-product-btn">
+          disabled={loading || compressing} id="save-product-btn">
           {loading ? (
             <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Creating Product...</>
+          ) : compressing ? (
+            <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Optimising Images...</>
           ) : (
             <>✦ Create Product</>
           )}

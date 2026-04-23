@@ -1917,6 +1917,53 @@
   line-height: 1.3;
 }
 
+/* ── Compression savings badge ── */
+.admin-compress-badge {
+  position: absolute;
+  top: 26px;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, rgba(34,197,94,0.92), rgba(16,185,129,0.92));
+  color: #fff;
+  font-size: 8px;
+  font-weight: 800;
+  padding: 3px 4px;
+  text-align: center;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Compressing spinner placeholder (cover slot) ── */
+.admin-image-compressing {
+  width: 110px;
+  height: 130px;
+  border-radius: 10px;
+  border: 2px dashed var(--admin-accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--admin-accent-soft);
+  animation: admin-pulse 1.4s ease-in-out infinite;
+}
+.admin-image-compressing p {
+  font-size: 10px;
+  color: var(--admin-accent-hover);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+}
+
+@keyframes admin-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
 /* ── Responsive additions ── */
 @media (max-width: 768px) {
   .admin-form-row-3 { grid-template-columns: 1fr; }

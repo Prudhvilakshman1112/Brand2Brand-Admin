@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, use } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { compressImage, formatBytes } from '@/lib/compressImage';
 
 function getSizePreset(subcategoryName) {
   const n = (subcategoryName || '').toLowerCase();
@@ -39,6 +40,7 @@ export default function AdminEditProductPage({ params }) {
   const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [selectedSubName, setSelectedSubName] = useState('');
 
   const [form, setForm] = useState({
@@ -110,9 +112,26 @@ export default function AdminEditProductPage({ params }) {
     if (v && !colors.includes(v)) { setColors(prev => [...prev, v]); setCustomColorInput(''); }
   };
 
-  const handleFilesSelected = (e) => {
+  const handleFilesSelected = async (e) => {
     const files = Array.from(e.target.files);
-    setNewImages(prev => [...prev, ...files.map(f => ({ file: f, preview: URL.createObjectURL(f), colorTag: '' }))]);
+    e.target.value = '';
+    if (!files.length) return;
+    setCompressing(true);
+    try {
+      const results = await Promise.all(files.map(f => compressImage(f)));
+      setNewImages(prev => [
+        ...prev,
+        ...results.map(r => ({
+          file:           r.file,
+          preview:        URL.createObjectURL(r.file),
+          colorTag:       '',
+          originalSize:   r.originalSize,
+          compressedSize: r.compressedSize,
+        })),
+      ]);
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -326,7 +345,7 @@ export default function AdminEditProductPage({ params }) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
                 </svg>
-                <p>Add more images</p>
+                <p>{compressing ? 'Optimising…' : 'Add more images'}</p>
               </div>
               <input type="file" ref={fileInputRef} onChange={handleFilesSelected} multiple accept="image/*" style={{ display: 'none' }} />
               {newImages.map((img, i) => (
@@ -335,6 +354,11 @@ export default function AdminEditProductPage({ params }) {
                   <button className="admin-image-remove-btn" type="button"
                     onClick={() => setNewImages(prev => prev.filter((_, idx) => idx !== i))}>×</button>
                   <div className="admin-image-badge" style={{ background: 'var(--admin-success)' }}>+{i + 1}</div>
+                  {img.originalSize && (
+                    <div className="admin-compress-badge">
+                      {formatBytes(img.originalSize)} → {formatBytes(img.compressedSize)} ✓
+                    </div>
+                  )}
                   {colors.length > 0 && (
                     <select className="admin-image-color-tag" value={img.colorTag}
                       onChange={e => setNewImages(prev => prev.map((v, idx) => idx === i ? { ...v, colorTag: e.target.value } : v))}>
@@ -348,8 +372,10 @@ export default function AdminEditProductPage({ params }) {
           </div>
         </div>
 
-        <button type="submit" className="admin-btn admin-btn-primary admin-btn-submit" disabled={saving}>
-          {saving ? <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Saving...</> : '✦ Save Changes'}
+        <button type="submit" className="admin-btn admin-btn-primary admin-btn-submit" disabled={saving || compressing}>
+          {saving ? <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Saving...</>
+          : compressing ? <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Optimising Images...</>
+          : '✦ Save Changes'}
         </button>
       </form>
     </>
