@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAuth } from '@/lib/requireAuth';
 
 export async function GET() {
   try {
+    // ── Auth guard ─────────────────────────────────────────────────────────
+    const { errorResponse } = await requireAuth();
+    if (errorResponse) return errorResponse;
+
     const supabase = createAdminClient();
 
     // List top level of bucket (no prefix)

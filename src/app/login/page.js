@@ -1,16 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-  const supabase = createClient();
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [checking, setChecking] = useState(true); // checking existing session
+
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const supabase     = createClient();
+
+  // ── If already logged-in, bounce to dashboard immediately ─────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.replace('/');
+      } else {
+        setChecking(false);
+      }
+    });
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -28,9 +42,22 @@ export default function AdminLoginPage() {
       return;
     }
 
-    router.push('/');
+    // Redirect to the page the user originally tried to visit, or dashboard
+    const next = searchParams.get('next') || '/';
+    router.push(next);
     router.refresh();
   };
+
+  // Show nothing while checking existing session — avoids flash of login form
+  if (checking) {
+    return (
+      <div className="admin-login-page" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+          <span className="admin-spinner" style={{ width: 32, height: 32 }} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-login-page" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -67,6 +94,7 @@ export default function AdminLoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@brand2brand.com"
               required
+              autoComplete="username"
               id="admin-login-email"
             />
           </div>
@@ -77,8 +105,9 @@ export default function AdminLoginPage() {
               className="admin-form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="********"
+              placeholder="••••••••"
               required
+              autoComplete="current-password"
               id="admin-login-password"
             />
           </div>

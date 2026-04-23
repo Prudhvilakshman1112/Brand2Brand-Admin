@@ -28,6 +28,20 @@ export default function AdminLayoutClient({ user, children }) {
     };
   }, [sidebarOpen]);
 
+  // ── Session guard: auto-redirect on expiry or sign-out ──────────────────
+  // Fires whenever Supabase detects a session change (token refresh, sign-out,
+  // tab focus with an expired token, sign-out from another tab, etc.)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
+          router.replace('/login');
+        }
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, []);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
