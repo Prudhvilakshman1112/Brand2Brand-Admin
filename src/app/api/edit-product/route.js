@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAuth } from '@/lib/requireAuth';
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+  extractPublicId,
+  isCloudinaryUrl,
+  isSupabaseStorageUrl,
+  extractSupabaseStoragePath,
+} from '@/lib/cloudinary';
 
 export async function PUT(request) {
   try {
@@ -52,38 +60,43 @@ export async function PUT(request) {
 
       if (img?.image_url) {
         try {
-          const url = new URL(img.image_url);
-          const storagePath = url.pathname.split('/storage/v1/object/public/product-images/')[1];
-          if (storagePath) await supabase.storage.from('product-images').remove([storagePath]);
-        } catch { /* ignore */ }
+          if (isCloudinaryUrl(img.image_url)) {
+            // Delete from Cloudinary
+            const publicId = extractPublicId(img.image_url);
+            if (publicId) await deleteFromCloudinary(publicId);
+          } else if (isSupabaseStorageUrl(img.image_url)) {
+            // Legacy: delete from Supabase Storage
+            const storagePath = extractSupabaseStoragePath(img.image_url);
+            if (storagePath) await supabase.storage.from('product-images').remove([storagePath]);
+          }
+        } catch (err) {
+          console.error('Image delete error:', err.message);
+        }
       }
       await supabase.from('product_images').delete().eq('id', imgId);
     }
 
-    // ── Upload new images ───────────────────────────────────
+    // ── Upload new images to Cloudinary ─────────────────────
     const newFiles = formData.getAll('newImages');
     const newColorTags = JSON.parse(formData.get('newColorTags') || '[]');
     const startOrder = existingImageCount;
+    const folder = `brand2brand/products/${productId}`;
 
     for (let i = 0; i < newFiles.length; i++) {
       const file = newFiles[i];
       if (!file || file.size === 0) continue;
-      const ext = file.name.split('.').pop().toLowerCase();
-      const storagePath = `products/${productId}/${Date.now()}_${i}.${ext}`;
 
-      const { error: uploadErr } = await supabase.storage
-        .from('product-images')
-        .upload(storagePath, file, { contentType: file.type, upsert: true });
-
-      if (uploadErr) { console.error(uploadErr); continue; }
-
-      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(storagePath);
-      await supabase.from('product_images').insert({
-        product_id: productId,
-        image_url: urlData.publicUrl,
-        display_order: startOrder + i,
-        color_tag: newColorTags[i] || null,
-      });
+      try {
+        const result = await uploadToCloudinary(file, folder, `${Date.now()}_${i}`);
+        await supabase.from('product_images').insert({
+          product_id: productId,
+          image_url: result.url,
+          display_order: startOrder + i,
+          color_tag: newColorTags[i] || null,
+        });
+      } catch (err) {
+        console.error(`New image ${i + 1} upload error:`, err.message);
+      }
     }
 
     return NextResponse.json({ success: true });

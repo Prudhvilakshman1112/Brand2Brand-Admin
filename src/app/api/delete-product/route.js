@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAuth } from '@/lib/requireAuth';
+import {
+  deleteFromCloudinary,
+  extractPublicId,
+  isCloudinaryUrl,
+  isSupabaseStorageUrl,
+  extractSupabaseStoragePath,
+} from '@/lib/cloudinary';
 
 export async function DELETE(request) {
   try {
@@ -17,17 +24,22 @@ export async function DELETE(request) {
       .select('image_url')
       .eq('product_id', productId);
 
-    // Delete from storage
+    // Delete images from their respective storage services
     if (images?.length) {
-      const paths = images.flatMap(img => {
+      for (const img of images) {
         try {
-          const url = new URL(img.image_url);
-          const path = url.pathname.split('/storage/v1/object/public/product-images/')[1];
-          return path ? [path] : [];
-        } catch { return []; }
-      });
-      if (paths.length) {
-        await supabase.storage.from('product-images').remove(paths);
+          if (isCloudinaryUrl(img.image_url)) {
+            const publicId = extractPublicId(img.image_url);
+            if (publicId) await deleteFromCloudinary(publicId);
+          } else if (isSupabaseStorageUrl(img.image_url)) {
+            const storagePath = extractSupabaseStoragePath(img.image_url);
+            if (storagePath) {
+              await supabase.storage.from('product-images').remove([storagePath]);
+            }
+          }
+        } catch (err) {
+          console.error('Image cleanup error:', err.message);
+        }
       }
     }
 

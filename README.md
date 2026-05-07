@@ -41,10 +41,16 @@
               ▼                              ▼
        ┌──────────────────────────────────────────┐
        │           SUPABASE (Shared Backend)       │
-       │  ┌──────────┐  ┌──────────┐  ┌────────┐  │
-       │  │PostgreSQL │  │ Storage  │  │  Auth   │  │
-       │  │  (Data)   │  │ (Images) │  │(Login)  │  │
-       │  └──────────┘  └──────────┘  └────────┘  │
+       │  ┌──────────┐  ┌────────┐               │
+       │  │PostgreSQL │  │  Auth   │               │
+       │  │  (Data)   │  │(Login)  │               │
+       │  └──────────┘  └────────┘               │
+       └──────────────────┬───────────────────────┘
+                          │ image_url references
+                          ▼
+       ┌──────────────────────────────────────────┐
+       │         ☁️  CLOUDINARY (Image CDN)        │
+       │  25 GB free storage + auto WebP/AVIF     │
        └──────────────────────────────────────────┘
 ```
 
@@ -62,7 +68,8 @@ This admin panel is a **completely independent Next.js application**:
 |-----------------|-----------------------------------------------|
 | **Next.js 16**   | React framework — App Router, SSR, middleware |
 | **React 19**     | UI component library                          |
-| **Supabase**     | PostgreSQL database, image storage, authentication |
+| **Supabase**     | PostgreSQL database, authentication            |
+| **Cloudinary**   | Image CDN — 25 GB free, auto WebP/AVIF, REST upload API |
 | **@supabase/ssr**| Server-side Supabase client for Next.js       |
 | **Vanilla CSS**  | Admin-specific dark theme design system       |
 
@@ -74,7 +81,7 @@ This admin panel is a **completely independent Next.js application**:
 
 ```
 d:\Brand2Brand-Admin\
-├── .env.local                     # Supabase keys + storefront URL
+├── .env.local                     # Supabase keys + Cloudinary keys + storefront URL
 ├── package.json                   # Scripts: dev runs on port 3001
 ├── next.config.mjs                # Next.js config
 ├── jsconfig.json                  # Path alias: @/ → src/
@@ -83,7 +90,11 @@ d:\Brand2Brand-Admin\
 │   ├── proxy.js                   # Middleware — route protection + auth
 │   │
 │   ├── lib/
+│   │   ├── cloudinary.js          # Cloudinary upload/delete/URL utilities
+│   │   ├── compressImage.js       # Client-side image compression (Canvas API)
+│   │   ├── requireAuth.js         # Auth guard for API routes
 │   │   └── supabase/
+│   │       ├── admin.js           # Service role client (bypasses RLS)
 │   │       ├── client.js          # Browser-side Supabase client
 │   │       └── server.js          # Server-side Supabase client
 │   │
@@ -184,16 +195,21 @@ The admin panel uses **Supabase Auth** with email/password login. Every route is
 └───────────────────────────────────┬───────────────────────────────────────┘
                                     │
                                     ▼
-┌─ SUPABASE ────────────────────────────────────────────────────────────────┐
+┌─ CLOUDINARY ──────────────────────────────────────────────────────────────┐
 │                                                                           │
-│  Step 1: Images uploaded to Storage bucket "product-images"               │
-│          → Each image gets a public URL                                   │
+│  Step 1: Images uploaded to Cloudinary CDN                                │
+│          → Each image gets a CDN URL (res.cloudinary.com/...)             │
+│                                                                           │
+└───────────────────────────────────┬───────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─ SUPABASE ────────────────────────────────────────────────────────────────┐
 │                                                                           │
 │  Step 2: Product row inserted into "products" table                       │
 │          → includes: name, brand, price, subcategory_id, sizes, etc.      │
 │                                                                           │
 │  Step 3: Image rows inserted into "product_images" table                  │
-│          → each row: product_id, image_url, display_order                 │
+│          → each row: product_id, image_url (Cloudinary URL), display_order│
 │                                                                           │
 └───────────────────────────────────┬───────────────────────────────────────┘
                                     │
@@ -202,7 +218,7 @@ The admin panel uses **Supabase Auth** with email/password login. Every route is
 │                                                                           │
 │  On next page load, Server Components query Supabase                      │
 │  → New product appears in clothing listing, homepage trending, etc.       │
-│  → Images displayed from Supabase Storage public URLs                     │
+│  → Images served from Cloudinary CDN with auto WebP/AVIF transforms      │
 │                                                                           │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
@@ -296,8 +312,9 @@ slugify("Men's Clothing") → "mens-clothing"
 ```
 1. Fetch all product_images for the product
 2. For each image:
-   a. Parse the Supabase Storage path from the URL
-   b. Delete the file from storage: supabase.storage.from('product-images').remove([path])
+   a. Detect if URL is Cloudinary or legacy Supabase Storage
+   b. Cloudinary: extract public_id → call Cloudinary destroy API
+   c. Supabase (legacy): parse storage path → supabase.storage.remove()
 3. Delete the product row (cascading deletes product_images rows)
 ```
 
@@ -327,16 +344,17 @@ slugify("Men's Clothing") → "mens-clothing"
 
 **Save Process:**
 ```
-1. Upload each image file to Supabase Storage bucket "product-images"
-   → Path: products/{product-name}/{timestamp}-{filename}
-   → Get public URL for each uploaded image
+1. Upload each image file to Cloudinary
+   → Folder: brand2brand/products/{product-id}/
+   → Cover image public_id: "cover", variants: "variant_1", "variant_2", etc.
+   → Get Cloudinary CDN URL for each uploaded image
 
 2. Insert product row into "products" table
    → Returns the new product ID
 
 3. Insert image rows into "product_images" table
-   → Each row: { product_id, image_url, display_order }
-   → display_order = index (0, 1, 2, ...)
+   → Each row: { product_id, image_url (Cloudinary URL), display_order }
+   → display_order = 0 (cover), 1, 2, 3... (variants)
 
 4. On success: redirect to /products
 ```
@@ -355,31 +373,48 @@ Same form as creation but pre-populated with existing data.
 
 ## Image Upload & Storage
 
-### Supabase Storage Bucket: `product-images`
+### Cloudinary CDN (Primary)
+
+All product images are stored on **Cloudinary** (25 GB free tier). The admin panel uses the Cloudinary Upload API via a server-side utility (`src/lib/cloudinary.js`).
 
 **Upload workflow:**
 ```
 1. User selects files via the image upload dropzone
-2. Files are stored in component state as File objects
-3. On form submit:
-   a. Each file uploaded to: product-images/products/{product-name}/{timestamp}-{filename}
-   b. supabase.storage.from('product-images').upload(path, file)
-   c. Get public URL: supabase.storage.from('product-images').getPublicUrl(path)
-   d. URL stored in product_images table
+2. Client-side compression via Canvas API (compressImage.js) — reduces to ≤200 KB WebP
+3. Files stored in component state as compressed File objects
+4. On form submit (API route):
+   a. Each file uploaded to Cloudinary: brand2brand/products/{product-id}/{cover|variant_N}
+   b. Cloudinary returns secure CDN URL
+   c. URL stored in product_images table in Supabase DB
 ```
 
 **Image preview:**
 - Before upload: Client-side preview using `URL.createObjectURL(file)`
-- After upload: Display from Supabase public URL
-- Order badge showing display order (1, 2, 3...)
-- Remove button (X) to delete individual images
+- Compression stats shown (e.g. "1.2 MB → 180 KB ✓")
+- After upload: Display from Cloudinary CDN URL
+- Order badge showing display order (Cover, 1, 2, 3...)
+- Remove button (×) to delete individual images
 
 **Image deletion:**
 ```
-1. Parse storage path from public URL
-2. Delete from storage: supabase.storage.from('product-images').remove([path])
-3. Delete row from product_images table
+1. Detect URL type (Cloudinary or legacy Supabase)
+2. Cloudinary: extract public_id from URL → call destroy API
+3. Supabase (legacy): parse storage path → supabase.storage.remove()
+4. Delete row from product_images table
 ```
+
+### Cloudinary Utility (`src/lib/cloudinary.js`)
+
+| Function | Purpose |
+|----------|--------|
+| `uploadToCloudinary(file, folder, publicId)` | Upload image file → returns `{ url, publicId, bytes }` |
+| `deleteFromCloudinary(publicId)` | Delete image by public_id → returns `true/false` |
+| `extractPublicId(url)` | Parse Cloudinary URL → extract public_id string |
+| `isCloudinaryUrl(url)` | Check if URL is from Cloudinary |
+| `isSupabaseStorageUrl(url)` | Check if URL is from Supabase Storage (legacy) |
+| `extractSupabaseStoragePath(url)` | Parse Supabase URL → extract storage path |
+
+> **Note:** Uses the Cloudinary REST API directly with SHA-1 signed requests — zero SDK dependencies.
 
 ---
 
@@ -551,6 +586,11 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
+# Cloudinary Configuration (image storage)
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+
 # Link back to storefront
 NEXT_PUBLIC_STOREFRONT_URL=http://localhost:3000
 ```
@@ -560,6 +600,9 @@ NEXT_PUBLIC_STOREFRONT_URL=http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_URL` | Public | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server only | Full database access |
+| `CLOUDINARY_CLOUD_NAME` | Server only | Cloudinary cloud name |
+| `CLOUDINARY_API_KEY` | Server only | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Server only | Cloudinary API secret |
 | `NEXT_PUBLIC_STOREFRONT_URL` | Public | "View Storefront" link in sidebar |
 
 ---
@@ -620,7 +663,7 @@ npm start -- --port 3001
 | **Port** | 3001 | 3000 |
 | **Access** | Password-protected (Supabase Auth) | Public |
 | **Database** | Full CRUD (read + write) | Read-only |
-| **Storage** | Uploads + deletes images | Reads image URLs |
+| **Image Storage** | Uploads to Cloudinary + stores URLs in Supabase | Reads Cloudinary URLs from Supabase |
 | **Auth** | Login required for all routes | No auth required |
 | **Design** | Dark admin theme (admin.css) | Cinematic storefront (globals.css) |
 | **Components** | Sidebar, tables, forms | Header, product cards, cart |

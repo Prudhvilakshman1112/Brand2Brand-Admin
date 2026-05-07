@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAuth } from '@/lib/requireAuth';
+import { uploadToCloudinary } from '@/lib/cloudinary';
 
 export async function POST(request) {
   try {
@@ -53,30 +54,26 @@ export async function POST(request) {
       return NextResponse.json({ error: prodErr.message }, { status: 500 });
     }
 
-    // ── Upload images ───────────────────────────────────────
+    const folder = `brand2brand/products/${product.id}`;
+
+    // ── Upload images to Cloudinary ─────────────────────────
     const coverFile = formData.get('coverImage');
     const variantFiles = formData.getAll('variantImages');
     const variantColorTags = JSON.parse(formData.get('variantColorTags') || '[]');
 
     // Upload cover (display_order = 0)
     if (coverFile && coverFile.size > 0) {
-      const ext = coverFile.name.split('.').pop().toLowerCase();
-      const storagePath = `products/${product.id}/cover.${ext}`;
-
-      const { error: uploadErr } = await supabase.storage
-        .from('product-images')
-        .upload(storagePath, coverFile, { contentType: coverFile.type, upsert: true });
-
-      if (uploadErr) {
-        console.error('Cover upload error:', uploadErr);
-      } else {
-        const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(storagePath);
+      try {
+        const result = await uploadToCloudinary(coverFile, folder, 'cover');
         await supabase.from('product_images').insert({
           product_id: product.id,
-          image_url: urlData.publicUrl,
+          image_url: result.url,
           display_order: 0,
           color_tag: null,
         });
+        console.log(`   🖼️  Cover uploaded to Cloudinary (${result.bytes} bytes)`);
+      } catch (err) {
+        console.error('Cover upload error:', err.message);
       }
     }
 
@@ -84,25 +81,19 @@ export async function POST(request) {
     for (let i = 0; i < variantFiles.length; i++) {
       const file = variantFiles[i];
       if (!file || file.size === 0) continue;
-      const ext = file.name.split('.').pop().toLowerCase();
-      const storagePath = `products/${product.id}/variant_${i + 1}.${ext}`;
 
-      const { error: uploadErr } = await supabase.storage
-        .from('product-images')
-        .upload(storagePath, file, { contentType: file.type, upsert: true });
-
-      if (uploadErr) {
-        console.error(`Variant ${i + 1} upload error:`, uploadErr);
-        continue;
+      try {
+        const result = await uploadToCloudinary(file, folder, `variant_${i + 1}`);
+        await supabase.from('product_images').insert({
+          product_id: product.id,
+          image_url: result.url,
+          display_order: i + 1,
+          color_tag: variantColorTags[i] || null,
+        });
+        console.log(`   🖼️  Variant ${i + 1} uploaded to Cloudinary (${result.bytes} bytes)`);
+      } catch (err) {
+        console.error(`Variant ${i + 1} upload error:`, err.message);
       }
-
-      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(storagePath);
-      await supabase.from('product_images').insert({
-        product_id: product.id,
-        image_url: urlData.publicUrl,
-        display_order: i + 1,
-        color_tag: variantColorTags[i] || null,
-      });
     }
 
     return NextResponse.json({ productId: product.id });
