@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 
@@ -49,7 +48,6 @@ function DeleteModal({ product, onConfirm, onCancel, isDeleting }) {
 }
 
 function ProductsPageInner() {
-  const supabase = createClient();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -64,16 +62,21 @@ function ProductsPageInner() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchProducts = useCallback(async () => {
-    const { data } = await supabase
-      .from('products')
-      .select(`
-        id, name, brand, price, badge, is_active, created_at,
-        subcategories ( name, category_id, categories ( id, name ) ),
-        product_images ( image_url, display_order )
-      `)
-      .order('created_at', { ascending: false });
-    setProducts(data || []);
-    setLoading(false);
+    try {
+      const res = await fetch('/api/products');
+      if (res.ok) {
+        const json = await res.json();
+        setProducts(json.products || []);
+      } else {
+        console.error('Failed to fetch products');
+        setProducts([]);
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);

@@ -38,11 +38,11 @@ export default async function AdminDashboardPage() {
 
   const [productsRes, categoriesRes, imagesRes, activeRes, categoriesData, realStorageBytes] =
     await Promise.all([
-      supabase.from('products').select('id', { count: 'exact', head: true }),
-      supabase.from('categories').select('id', { count: 'exact', head: true }),
-      supabase.from('product_images').select('id', { count: 'exact', head: true }),
-      supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
-      supabase.from('categories').select('id, name, subcategories(id, name, products(id))'),
+      adminSupabase.from('products').select('id', { count: 'exact', head: true }),
+      adminSupabase.from('categories').select('id', { count: 'exact', head: true }),
+      adminSupabase.from('product_images').select('id', { count: 'exact', head: true }),
+      adminSupabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
+      adminSupabase.from('categories').select('id, name, subcategories(id, name, products(id))'),
       getRealStorageBytes(adminSupabase),
     ]);
 
