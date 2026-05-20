@@ -10,21 +10,18 @@
  *   CLOUDINARY_API_SECRET
  */
 
+import { createHash } from 'crypto';
+
 const CLOUD_NAME  = process.env.CLOUDINARY_CLOUD_NAME;
 const API_KEY     = process.env.CLOUDINARY_API_KEY;
 const API_SECRET  = process.env.CLOUDINARY_API_SECRET;
 
 /**
  * Generate SHA-1 hex digest for Cloudinary signature.
- * Uses the Web Crypto API (available in Node 18+ and Edge runtime).
+ * Uses Node.js built-in crypto module (works in ALL Node.js versions).
  */
-async function sha1Hex(message) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-1', data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+function sha1Hex(message) {
+  return createHash('sha1').update(message).digest('hex');
 }
 
 /**

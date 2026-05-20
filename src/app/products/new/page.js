@@ -170,6 +170,12 @@ export default function AdminNewProductPage() {
       const res = await fetch('/api/upload-product', { method: 'POST', body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Upload failed');
+
+      // Check image upload results
+      if (json.images?.failed > 0) {
+        alert(`Product created, but ${json.images.failed} image(s) failed to upload:\n\n${json.images.errors.join('\n')}\n\nYou can re-upload images from the Edit page.`);
+      }
+
       router.push('/products');
     } catch (err) {
       alert('Error: ' + err.message);

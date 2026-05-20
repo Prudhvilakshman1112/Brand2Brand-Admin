@@ -134,6 +134,18 @@ export default function AdminEditProductPage({ params }) {
     }
   };
 
+  const handleRemoveExisting = (imgId) => {
+    setRemovedImageIds(prev => [...prev, imgId]);
+  };
+
+  const handleUndoRemove = (imgId) => {
+    setRemovedImageIds(prev => prev.filter(id => id !== imgId));
+  };
+
+  // Images that will remain after save (existing minus removed)
+  const activeExistingCount = existingImages.filter(img => !removedImageIds.includes(img.id)).length;
+  const totalAfterSave = activeExistingCount + newImages.length;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.price || !form.subcategoryId) { alert('Please fill required fields.'); return; }
@@ -153,13 +165,19 @@ export default function AdminEditProductPage({ params }) {
       fd.append('badge', form.badge);
       fd.append('atmosphereTheme', form.atmosphereTheme);
       fd.append('removedImageIds', JSON.stringify(removedImageIds));
-      fd.append('existingImageCount', String(existingImages.length));
+      fd.append('existingImageCount', String(activeExistingCount));
       newImages.forEach(img => fd.append('newImages', img.file));
       fd.append('newColorTags', JSON.stringify(newImages.map(img => img.colorTag)));
 
       const res = await fetch('/api/edit-product', { method: 'PUT', body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Save failed');
+
+      // Check image upload results
+      if (json.images?.failed > 0) {
+        alert(`Product saved, but ${json.images.failed} image(s) failed to upload:\n\n${json.images.errors.join('\n')}\n\nTry again from the Edit page.`);
+      }
+
       router.push('/products');
     } catch (err) {
       alert('Error: ' + err.message);
@@ -323,23 +341,59 @@ export default function AdminEditProductPage({ params }) {
         </div>
 
         <div className="admin-form-section">
-          <div className="admin-form-section-title"><span className="admin-form-section-num">5</span> Images</div>
+          <div className="admin-form-section-title">
+            <span className="admin-form-section-num">5</span> Images
+            <span className="admin-form-section-hint">
+              — {totalAfterSave} image{totalAfterSave !== 1 ? 's' : ''} after save
+              {removedImageIds.length > 0 && <span style={{ color: 'var(--admin-danger, #ef4444)' }}> • {removedImageIds.length} marked for removal</span>}
+              {newImages.length > 0 && <span style={{ color: 'var(--admin-success, #22c55e)' }}> • {newImages.length} new</span>}
+            </span>
+          </div>
           <div className="admin-form-section-body">
+            {/* ── Existing Images ── */}
             {existingImages.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <p className="admin-form-label" style={{ marginBottom: 10 }}>Current Images</p>
+                <p className="admin-form-label" style={{ marginBottom: 10 }}>Current Images ({activeExistingCount} active{removedImageIds.length > 0 ? `, ${removedImageIds.length} pending removal` : ''})</p>
                 <div className="admin-variant-images-area">
-                  {existingImages.map((img, i) => (
-                    <div key={img.id} className="admin-image-preview-single">
-                      <img src={img.image_url} alt={`Image ${i + 1}`} />
-                      <button className="admin-image-remove-btn" type="button"
-                        onClick={() => { setRemovedImageIds(prev => [...prev, img.id]); setExistingImages(prev => prev.filter(x => x.id !== img.id)); }}>×</button>
-                      <div className="admin-image-badge">{i === 0 ? 'Cover' : i + 1}</div>
-                    </div>
-                  ))}
+                  {existingImages.map((img, i) => {
+                    const isMarkedForRemoval = removedImageIds.includes(img.id);
+                    return (
+                      <div key={img.id} className="admin-image-preview-single" style={isMarkedForRemoval ? { opacity: 0.35, filter: 'grayscale(1)', position: 'relative' } : {}}>
+                        <img src={img.image_url} alt={`Image ${i + 1}`} />
+                        {isMarkedForRemoval ? (
+                          <>
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', borderRadius: 8, flexDirection: 'column', gap: 6, zIndex: 2 }}>
+                              <span style={{ color: '#fff', fontSize: 11, fontWeight: 600 }}>Will be deleted</span>
+                              <button type="button" onClick={() => handleUndoRemove(img.id)}
+                                style={{ background: 'var(--admin-primary, #6366f1)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                                ↩ Undo
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <button className="admin-image-remove-btn" type="button"
+                            onClick={() => handleRemoveExisting(img.id)}
+                            title="Mark for removal">×</button>
+                        )}
+                        <div className="admin-image-badge" style={isMarkedForRemoval ? { background: 'var(--admin-danger, #ef4444)' } : {}}>
+                          {isMarkedForRemoval ? '🗑' : i === 0 ? 'Cover' : i + 1}
+                        </div>
+                        {img.color_tag && (
+                          <div className="admin-compress-badge" style={{ background: 'var(--admin-primary, #6366f1)', color: '#fff' }}>
+                            {img.color_tag}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
+
+            {/* ── Add New Images ── */}
+            <div style={{ marginBottom: 8 }}>
+              <p className="admin-form-label" style={{ marginBottom: 10 }}>Add New Images</p>
+            </div>
             <div className="admin-variant-images-area">
               <div className="admin-image-drop-zone admin-image-drop-zone-sm" onClick={() => fileInputRef.current?.click()}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
@@ -353,7 +407,7 @@ export default function AdminEditProductPage({ params }) {
                   <img src={img.preview} alt={`New ${i + 1}`} />
                   <button className="admin-image-remove-btn" type="button"
                     onClick={() => setNewImages(prev => prev.filter((_, idx) => idx !== i))}>×</button>
-                  <div className="admin-image-badge" style={{ background: 'var(--admin-success)' }}>+{i + 1}</div>
+                  <div className="admin-image-badge" style={{ background: 'var(--admin-success, #22c55e)' }}>+{i + 1}</div>
                   {img.originalSize && (
                     <div className="admin-compress-badge">
                       {formatBytes(img.originalSize)} → {formatBytes(img.compressedSize)} ✓

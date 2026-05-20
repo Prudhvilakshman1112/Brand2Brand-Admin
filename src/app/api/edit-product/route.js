@@ -50,6 +50,10 @@ export async function PUT(request) {
 
     if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
 
+    console.log(`✅ Product updated: ${productId} — "${name}"`);
+
+    const imageResults = { deleted: 0, uploaded: 0, failed: 0, errors: [] };
+
     // ── Remove deleted images ───────────────────────────────
     for (const imgId of removedImageIds) {
       const { data: img } = await supabase
@@ -74,6 +78,8 @@ export async function PUT(request) {
         }
       }
       await supabase.from('product_images').delete().eq('id', imgId);
+      imageResults.deleted++;
+      console.log(`   🗑️  Deleted image ${imgId}`);
     }
 
     // ── Upload new images to Cloudinary ─────────────────────
@@ -87,21 +93,35 @@ export async function PUT(request) {
       if (!file || file.size === 0) continue;
 
       try {
+        console.log(`📤 Uploading new image ${i + 1} (${file.size} bytes, type: ${file.type})...`);
         const result = await uploadToCloudinary(file, folder, `${Date.now()}_${i}`);
-        await supabase.from('product_images').insert({
+        const { error: imgErr } = await supabase.from('product_images').insert({
           product_id: productId,
           image_url: result.url,
           display_order: startOrder + i,
           color_tag: newColorTags[i] || null,
         });
+        if (imgErr) {
+          console.error(`New image ${i + 1} DB insert error:`, imgErr);
+          imageResults.failed++;
+          imageResults.errors.push(`Image ${i + 1} DB error: ${imgErr.message}`);
+        } else {
+          imageResults.uploaded++;
+          console.log(`   🖼️  New image ${i + 1} uploaded (${result.bytes} bytes) → ${result.url}`);
+        }
       } catch (err) {
-        console.error(`New image ${i + 1} upload error:`, err.message);
+        console.error(`❌ New image ${i + 1} upload error:`, err.message);
+        imageResults.failed++;
+        imageResults.errors.push(`Image ${i + 1}: ${err.message}`);
       }
     }
 
-    return NextResponse.json({ success: true });
+    console.log(`📊 Edit summary: ${imageResults.deleted} deleted, ${imageResults.uploaded} uploaded, ${imageResults.failed} failed`);
+
+    return NextResponse.json({ success: true, images: imageResults });
   } catch (err) {
     console.error('API error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

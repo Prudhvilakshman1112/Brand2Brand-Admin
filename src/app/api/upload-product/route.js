@@ -54,7 +54,10 @@ export async function POST(request) {
       return NextResponse.json({ error: prodErr.message }, { status: 500 });
     }
 
+    console.log(`✅ Product created: ${product.id} — "${name}"`);
+
     const folder = `brand2brand/products/${product.id}`;
+    const imageResults = { uploaded: 0, failed: 0, errors: [] };
 
     // ── Upload images to Cloudinary ─────────────────────────
     const coverFile = formData.get('coverImage');
@@ -64,16 +67,26 @@ export async function POST(request) {
     // Upload cover (display_order = 0)
     if (coverFile && coverFile.size > 0) {
       try {
+        console.log(`📤 Uploading cover image (${coverFile.size} bytes, type: ${coverFile.type})...`);
         const result = await uploadToCloudinary(coverFile, folder, 'cover');
-        await supabase.from('product_images').insert({
+        const { error: imgErr } = await supabase.from('product_images').insert({
           product_id: product.id,
           image_url: result.url,
           display_order: 0,
           color_tag: null,
         });
-        console.log(`   🖼️  Cover uploaded to Cloudinary (${result.bytes} bytes)`);
+        if (imgErr) {
+          console.error('Cover DB insert error:', imgErr);
+          imageResults.failed++;
+          imageResults.errors.push(`Cover DB error: ${imgErr.message}`);
+        } else {
+          imageResults.uploaded++;
+          console.log(`   🖼️  Cover uploaded to Cloudinary (${result.bytes} bytes) → ${result.url}`);
+        }
       } catch (err) {
-        console.error('Cover upload error:', err.message);
+        console.error('❌ Cover upload error:', err.message);
+        imageResults.failed++;
+        imageResults.errors.push(`Cover upload: ${err.message}`);
       }
     }
 
@@ -83,22 +96,39 @@ export async function POST(request) {
       if (!file || file.size === 0) continue;
 
       try {
+        console.log(`📤 Uploading variant ${i + 1} (${file.size} bytes, type: ${file.type})...`);
         const result = await uploadToCloudinary(file, folder, `variant_${i + 1}`);
-        await supabase.from('product_images').insert({
+        const { error: imgErr } = await supabase.from('product_images').insert({
           product_id: product.id,
           image_url: result.url,
           display_order: i + 1,
           color_tag: variantColorTags[i] || null,
         });
-        console.log(`   🖼️  Variant ${i + 1} uploaded to Cloudinary (${result.bytes} bytes)`);
+        if (imgErr) {
+          console.error(`Variant ${i + 1} DB insert error:`, imgErr);
+          imageResults.failed++;
+          imageResults.errors.push(`Variant ${i + 1} DB error: ${imgErr.message}`);
+        } else {
+          imageResults.uploaded++;
+          console.log(`   🖼️  Variant ${i + 1} uploaded (${result.bytes} bytes) → ${result.url}`);
+        }
       } catch (err) {
-        console.error(`Variant ${i + 1} upload error:`, err.message);
+        console.error(`❌ Variant ${i + 1} upload error:`, err.message);
+        imageResults.failed++;
+        imageResults.errors.push(`Variant ${i + 1}: ${err.message}`);
       }
     }
 
-    return NextResponse.json({ productId: product.id });
+    console.log(`📊 Image upload summary: ${imageResults.uploaded} uploaded, ${imageResults.failed} failed`);
+
+    // Return detailed results so the client knows what happened
+    return NextResponse.json({
+      productId: product.id,
+      images: imageResults,
+    });
   } catch (err) {
     console.error('API error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

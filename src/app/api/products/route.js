@@ -17,7 +17,7 @@ export async function GET() {
       .select(`
         id, name, brand, price, badge, is_active, created_at,
         subcategories ( name, category_id, categories ( id, name ) ),
-        product_images ( image_url, display_order )
+        product_images ( id, image_url, display_order, color_tag )
       `)
       .order('created_at', { ascending: false });
 
