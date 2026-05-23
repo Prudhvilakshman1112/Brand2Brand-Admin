@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, use } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { compressImage, formatBytes } from '@/lib/compressImage';
+import { uploadToCloudinaryDirect } from '@/lib/cloudinaryDirect';
 
 function getSizePreset(subcategoryName) {
   const n = (subcategoryName || '').toLowerCase();
@@ -42,6 +43,7 @@ export default function AdminEditProductPage({ params }) {
   const [saving, setSaving] = useState(false);
   const [compressing, setCompressing] = useState(false);
   const [selectedSubName, setSelectedSubName] = useState('');
+  const [uploadProgress, setUploadProgress] = useState('');
 
   const [form, setForm] = useState({
     name: '', brand: 'Brand 2 Brand', description: '', price: '', originalPrice: '',
@@ -150,32 +152,64 @@ export default function AdminEditProductPage({ params }) {
     e.preventDefault();
     if (!form.name || !form.price || !form.subcategoryId) { alert('Please fill required fields.'); return; }
     setSaving(true);
+    setUploadProgress('');
     try {
-      const fd = new FormData();
-      fd.append('productId', productId);
-      fd.append('name', form.name);
-      fd.append('brand', form.brand);
-      fd.append('subcategoryId', form.subcategoryId);
-      fd.append('gender', form.gender);
-      fd.append('price', form.price);
-      fd.append('originalPrice', form.originalPrice);
-      fd.append('description', form.description);
-      fd.append('sizes', JSON.stringify(sizes));
-      fd.append('colors', JSON.stringify(colors));
-      fd.append('badge', form.badge);
-      fd.append('atmosphereTheme', form.atmosphereTheme);
-      fd.append('removedImageIds', JSON.stringify(removedImageIds));
-      fd.append('existingImageCount', String(activeExistingCount));
-      newImages.forEach(img => fd.append('newImages', img.file));
-      fd.append('newColorTags', JSON.stringify(newImages.map(img => img.colorTag)));
+      // ── Step 1: Update product metadata + delete removed images (lightweight JSON) ──
+      const metaRes = await fetch('/api/edit-product', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId,
+          name: form.name,
+          brand: form.brand,
+          subcategoryId: form.subcategoryId,
+          gender: form.gender,
+          price: form.price,
+          originalPrice: form.originalPrice,
+          description: form.description,
+          sizes,
+          colors,
+          badge: form.badge,
+          atmosphereTheme: form.atmosphereTheme,
+          removedImageIds,
+        }),
+      });
 
-      const res = await fetch('/api/edit-product', { method: 'PUT', body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Save failed');
+      const metaJson = await metaRes.json();
+      if (!metaRes.ok) throw new Error(metaJson.error || 'Save failed');
 
-      // Check image upload results
-      if (json.images?.failed > 0) {
-        alert(`Product saved, but ${json.images.failed} image(s) failed to upload:\n\n${json.images.errors.join('\n')}\n\nTry again from the Edit page.`);
+      // ── Step 2: Upload new images directly Browser → Cloudinary ──
+      const imageErrors = [];
+      if (newImages.length > 0) {
+        const folder = `brand2brand/products/${productId}`;
+        const startOrder = activeExistingCount;
+
+        for (let i = 0; i < newImages.length; i++) {
+          const img = newImages[i];
+          if (!img.file) continue;
+          try {
+            setUploadProgress(`Uploading image ${i + 1}/${newImages.length}...`);
+            const result = await uploadToCloudinaryDirect(img.file, folder, `${Date.now()}_${i}`);
+
+            await fetch('/api/save-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                productId,
+                imageUrl: result.url,
+                displayOrder: startOrder + i,
+                colorTag: img.colorTag || null,
+              }),
+            });
+          } catch (err) {
+            imageErrors.push(`Image ${i + 1}: ${err.message}`);
+          }
+        }
+      }
+
+      // Show results
+      if (imageErrors.length > 0) {
+        alert(`Product saved, but ${imageErrors.length} image(s) failed to upload:\n\n${imageErrors.join('\n')}\n\nTry again from the Edit page.`);
       }
 
       router.push('/products');
@@ -183,6 +217,7 @@ export default function AdminEditProductPage({ params }) {
       alert('Error: ' + err.message);
     } finally {
       setSaving(false);
+      setUploadProgress('');
     }
   };
 
@@ -427,7 +462,7 @@ export default function AdminEditProductPage({ params }) {
         </div>
 
         <button type="submit" className="admin-btn admin-btn-primary admin-btn-submit" disabled={saving || compressing}>
-          {saving ? <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Saving...</>
+          {saving ? <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> {uploadProgress || 'Saving...'}</>
           : compressing ? <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Optimising Images...</>
           : '✦ Save Changes'}
         </button>

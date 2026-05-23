@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { compressImage, formatBytes } from '@/lib/compressImage';
+import { uploadToCloudinaryDirect } from '@/lib/cloudinaryDirect';
 
 // ── Size presets by subcategory keyword ─────────────────────────────────────
 function getSizePreset(subcategoryName) {
@@ -49,6 +50,7 @@ export default function AdminNewProductPage() {
   const [loading, setLoading] = useState(false);
   const [compressing, setCompressing] = useState(false);
   const [selectedSubName, setSelectedSubName] = useState('');
+  const [uploadProgress, setUploadProgress] = useState('');
 
   const [form, setForm] = useState({
     name: '', brand: 'Brand 2 Brand', description: '', price: '',
@@ -149,31 +151,97 @@ export default function AdminNewProductPage() {
       return;
     }
     setLoading(true);
+    setUploadProgress('');
     try {
-      const fd = new FormData();
-      fd.append('name', form.name);
-      fd.append('brand', form.brand);
-      fd.append('subcategoryId', form.subcategoryId);
-      fd.append('gender', form.gender);
-      fd.append('price', form.price);
-      fd.append('originalPrice', form.originalPrice);
-      fd.append('description', form.description);
-      fd.append('sizes', JSON.stringify(sizes));
-      fd.append('colors', JSON.stringify(colors));
-      fd.append('badge', form.badge);
-      fd.append('atmosphereTheme', form.atmosphereTheme);
+      // ── Step 1: Create the product row first (no images, lightweight JSON) ──
+      const productRes = await fetch('/api/upload-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          brand: form.brand,
+          subcategoryId: form.subcategoryId,
+          gender: form.gender,
+          price: form.price,
+          originalPrice: form.originalPrice,
+          description: form.description,
+          sizes,
+          colors,
+          badge: form.badge,
+          atmosphereTheme: form.atmosphereTheme,
+        }),
+      });
 
-      if (coverImage?.file) fd.append('coverImage', coverImage.file);
-      variantImages.forEach(v => fd.append('variantImages', v.file));
-      fd.append('variantColorTags', JSON.stringify(variantImages.map(v => v.colorTag)));
+      const productJson = await productRes.json();
+      if (!productRes.ok) throw new Error(productJson.error || 'Failed to create product');
 
-      const res = await fetch('/api/upload-product', { method: 'POST', body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Upload failed');
+      const productId = productJson.productId;
+      const folder = `brand2brand/products/${productId}`;
+      const imageResults = { uploaded: 0, failed: 0, errors: [] };
 
-      // Check image upload results
-      if (json.images?.failed > 0) {
-        alert(`Product created, but ${json.images.failed} image(s) failed to upload:\n\n${json.images.errors.join('\n')}\n\nYou can re-upload images from the Edit page.`);
+      // ── Step 2: Upload images directly Browser → Cloudinary ──
+      const totalImages = (coverImage ? 1 : 0) + variantImages.length;
+      let completedImages = 0;
+
+      // Upload cover image
+      if (coverImage?.file) {
+        try {
+          setUploadProgress(`Uploading cover image (1/${totalImages})...`);
+          const result = await uploadToCloudinaryDirect(coverImage.file, folder, 'cover');
+
+          // Save image URL to database
+          await fetch('/api/save-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              productId,
+              imageUrl: result.url,
+              displayOrder: 0,
+              colorTag: null,
+            }),
+          });
+
+          imageResults.uploaded++;
+          completedImages++;
+        } catch (err) {
+          imageResults.failed++;
+          imageResults.errors.push(`Cover upload: ${err.message}`);
+          completedImages++;
+        }
+      }
+
+      // Upload variant images
+      const variantColorTags = variantImages.map(v => v.colorTag);
+      for (let i = 0; i < variantImages.length; i++) {
+        const img = variantImages[i];
+        if (!img.file) continue;
+        try {
+          setUploadProgress(`Uploading image ${completedImages + 1}/${totalImages}...`);
+          const result = await uploadToCloudinaryDirect(img.file, folder, `variant_${i + 1}`);
+
+          await fetch('/api/save-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              productId,
+              imageUrl: result.url,
+              displayOrder: i + 1,
+              colorTag: variantColorTags[i] || null,
+            }),
+          });
+
+          imageResults.uploaded++;
+          completedImages++;
+        } catch (err) {
+          imageResults.failed++;
+          imageResults.errors.push(`Variant ${i + 1}: ${err.message}`);
+          completedImages++;
+        }
+      }
+
+      // Show results
+      if (imageResults.failed > 0) {
+        alert(`Product created, but ${imageResults.failed} image(s) failed to upload:\n\n${imageResults.errors.join('\n')}\n\nYou can re-upload images from the Edit page.`);
       }
 
       router.push('/products');
@@ -181,6 +249,7 @@ export default function AdminNewProductPage() {
       alert('Error: ' + err.message);
     } finally {
       setLoading(false);
+      setUploadProgress('');
     }
   };
 
@@ -458,7 +527,7 @@ export default function AdminNewProductPage() {
         <button type="submit" className="admin-btn admin-btn-primary admin-btn-submit"
           disabled={loading || compressing} id="save-product-btn">
           {loading ? (
-            <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Creating Product...</>
+            <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> {uploadProgress || 'Creating Product...'}</>
           ) : compressing ? (
             <><span className="admin-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Optimising Images...</>
           ) : (

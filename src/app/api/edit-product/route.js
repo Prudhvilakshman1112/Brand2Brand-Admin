@@ -1,8 +1,19 @@
+/**
+ * /api/edit-product
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Updates an existing product's metadata and handles image deletions.
+ *
+ * UPDATED: No longer handles image file uploads — new images are uploaded
+ * directly from the browser to Cloudinary and saved via /api/save-image.
+ * This route still handles deleting removed images from Cloudinary/Supabase.
+ *
+ * Body: JSON with product fields + removedImageIds
+ */
+
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAuth } from '@/lib/requireAuth';
 import {
-  uploadToCloudinary,
   deleteFromCloudinary,
   extractPublicId,
   isCloudinaryUrl,
@@ -17,22 +28,21 @@ export async function PUT(request) {
     if (errorResponse) return errorResponse;
 
     const supabase = createAdminClient();
-    const formData = await request.formData();
+    const body = await request.json();
 
-    const productId     = formData.get('productId');
-    const name          = formData.get('name');
-    const brand         = formData.get('brand') || 'Brand 2 Brand';
-    const subcategoryId = formData.get('subcategoryId');
-    const gender        = formData.get('gender') || null;
-    const price         = parseInt(formData.get('price'));
-    const originalPrice = formData.get('originalPrice') ? parseInt(formData.get('originalPrice')) : null;
-    const description   = formData.get('description') || null;
-    const sizes         = JSON.parse(formData.get('sizes') || '[]');
-    const colors        = JSON.parse(formData.get('colors') || '[]');
-    const badge         = formData.get('badge') || null;
-    const atmosphereTheme = formData.get('atmosphereTheme') || 'default';
-    const removedImageIds = JSON.parse(formData.get('removedImageIds') || '[]');
-    const existingImageCount = parseInt(formData.get('existingImageCount') || '0');
+    const productId     = body.productId;
+    const name          = body.name;
+    const brand         = body.brand || 'Brand 2 Brand';
+    const subcategoryId = body.subcategoryId;
+    const gender        = body.gender || null;
+    const price         = parseInt(body.price);
+    const originalPrice = body.originalPrice ? parseInt(body.originalPrice) : null;
+    const description   = body.description || null;
+    const sizes         = body.sizes || [];
+    const colors        = body.colors || [];
+    const badge         = body.badge || null;
+    const atmosphereTheme = body.atmosphereTheme || 'default';
+    const removedImageIds = body.removedImageIds || [];
 
     if (!productId || !name || !price || !subcategoryId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -52,7 +62,7 @@ export async function PUT(request) {
 
     console.log(`✅ Product updated: ${productId} — "${name}"`);
 
-    const imageResults = { deleted: 0, uploaded: 0, failed: 0, errors: [] };
+    const imageResults = { deleted: 0 };
 
     // ── Remove deleted images ───────────────────────────────
     for (const imgId of removedImageIds) {
@@ -82,41 +92,7 @@ export async function PUT(request) {
       console.log(`   🗑️  Deleted image ${imgId}`);
     }
 
-    // ── Upload new images to Cloudinary ─────────────────────
-    const newFiles = formData.getAll('newImages');
-    const newColorTags = JSON.parse(formData.get('newColorTags') || '[]');
-    const startOrder = existingImageCount;
-    const folder = `brand2brand/products/${productId}`;
-
-    for (let i = 0; i < newFiles.length; i++) {
-      const file = newFiles[i];
-      if (!file || file.size === 0) continue;
-
-      try {
-        console.log(`📤 Uploading new image ${i + 1} (${file.size} bytes, type: ${file.type})...`);
-        const result = await uploadToCloudinary(file, folder, `${Date.now()}_${i}`);
-        const { error: imgErr } = await supabase.from('product_images').insert({
-          product_id: productId,
-          image_url: result.url,
-          display_order: startOrder + i,
-          color_tag: newColorTags[i] || null,
-        });
-        if (imgErr) {
-          console.error(`New image ${i + 1} DB insert error:`, imgErr);
-          imageResults.failed++;
-          imageResults.errors.push(`Image ${i + 1} DB error: ${imgErr.message}`);
-        } else {
-          imageResults.uploaded++;
-          console.log(`   🖼️  New image ${i + 1} uploaded (${result.bytes} bytes) → ${result.url}`);
-        }
-      } catch (err) {
-        console.error(`❌ New image ${i + 1} upload error:`, err.message);
-        imageResults.failed++;
-        imageResults.errors.push(`Image ${i + 1}: ${err.message}`);
-      }
-    }
-
-    console.log(`📊 Edit summary: ${imageResults.deleted} deleted, ${imageResults.uploaded} uploaded, ${imageResults.failed} failed`);
+    console.log(`📊 Edit summary: ${imageResults.deleted} deleted`);
 
     return NextResponse.json({ success: true, images: imageResults });
   } catch (err) {
@@ -124,4 +100,3 @@ export async function PUT(request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-
