@@ -41,6 +41,23 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // ── Generate unique product code (B2B-XXXX) ────────────
+    // Query the max existing sequence number to avoid collisions
+    const { data: existingCodes } = await supabase
+      .from('products')
+      .select('product_code')
+      .like('product_code', 'B2B-%')
+      .order('product_code', { ascending: false })
+      .limit(1);
+
+    let nextSeq = 1;
+    if (existingCodes && existingCodes.length > 0 && existingCodes[0].product_code) {
+      const lastCode = existingCodes[0].product_code; // e.g. "B2B-0042"
+      const lastNum = parseInt(lastCode.replace('B2B-', ''), 10);
+      if (!isNaN(lastNum)) nextSeq = lastNum + 1;
+    }
+    const productCode = `B2B-${String(nextSeq).padStart(4, '0')}`;
+
     // ── Insert product row ──────────────────────────────────
     const { data: product, error: prodErr } = await supabase
       .from('products')
@@ -57,6 +74,7 @@ export async function POST(request) {
         badge,
         atmosphere_theme: atmosphereTheme,
         is_active: true,
+        product_code: productCode,
       })
       .select()
       .single();
@@ -66,9 +84,9 @@ export async function POST(request) {
       return NextResponse.json({ error: prodErr.message }, { status: 500 });
     }
 
-    console.log(`✅ Product created: ${product.id} — "${name}"`);
+    console.log(`✅ Product created: ${product.id} — "${name}" [${productCode}]`);
 
-    return NextResponse.json({ productId: product.id });
+    return NextResponse.json({ productId: product.id, productCode });
   } catch (err) {
     console.error('API error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

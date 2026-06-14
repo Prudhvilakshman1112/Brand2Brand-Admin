@@ -57,6 +57,7 @@ export default function AdminEditProductPage({ params }) {
   const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
   const [removedImageIds, setRemovedImageIds] = useState([]);
+  const [productCode, setProductCode] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -70,6 +71,7 @@ export default function AdminEditProductPage({ params }) {
       const cat = cats?.find(c => c.id === catId);
       setSubcategories(cat?.subcategories || []);
       setSelectedSubName(product.subcategories?.name || '');
+      setProductCode(product.product_code || '');
       setForm({
         name: product.name || '', brand: product.brand || 'Brand 2 Brand',
         description: product.description || '', price: product.price?.toString() || '',
@@ -228,7 +230,12 @@ export default function AdminEditProductPage({ params }) {
       <div className="admin-page-header">
         <div>
           <h2>Edit Product</h2>
-          <p className="admin-page-subtitle">{form.name}</p>
+          <p className="admin-page-subtitle">
+            {form.name}
+            {productCode && (
+              <span style={{ fontFamily: 'monospace', fontSize: '12px', background: 'var(--admin-border)', padding: '2px 8px', borderRadius: '4px', marginLeft: '10px', letterSpacing: '0.05em', color: 'var(--admin-text-muted)' }}>{productCode}</span>
+            )}
+          </p>
         </div>
         <button className="admin-btn admin-btn-ghost" onClick={() => router.back()}>← Back</button>
       </div>

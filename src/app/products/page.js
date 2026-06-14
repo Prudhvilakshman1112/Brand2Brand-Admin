@@ -208,7 +208,7 @@ function ProductsPageInner() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Image</th><th>Name</th><th>Category</th>
+                <th>Image</th><th>Name</th><th>Code</th><th>Category</th>
                 <th>Price</th><th>Badge</th>
                 <th title="Toggle to show/hide on website. Data always stays in database.">Visibility</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
@@ -229,6 +229,11 @@ function ProductsPageInner() {
                     <td>
                       <div style={{ fontWeight: 600 }}>{p.name}</div>
                       <div style={{ fontSize: '11px', color: 'var(--admin-text-muted)' }}>{p.brand}</div>
+                    </td>
+                    <td>
+                      {p.product_code
+                        ? <span style={{ fontFamily: 'monospace', fontSize: '11px', background: 'var(--admin-border)', padding: '2px 7px', borderRadius: '4px', color: 'var(--admin-text-muted)', letterSpacing: '0.05em' }}>{p.product_code}</span>
+                        : <span style={{ color: 'var(--admin-text-muted)' }}>—</span>}
                     </td>
                     <td style={{ color: 'var(--admin-text-muted)', fontSize: '12px' }}>
                       {p.subcategories?.categories?.name} › {p.subcategories?.name}
@@ -292,7 +297,10 @@ function ProductsPageInner() {
                 }
                 <div className="admin-mobile-card-body">
                   <div className="admin-mobile-card-title">{p.name}</div>
-                  <div className="admin-mobile-card-subtitle">{p.brand} · {p.subcategories?.categories?.name} › {p.subcategories?.name}</div>
+                  <div className="admin-mobile-card-subtitle">
+                    {p.product_code && <span style={{ fontFamily: 'monospace', fontSize: '10px', background: 'var(--admin-border)', padding: '1px 5px', borderRadius: '3px', marginRight: '5px' }}>{p.product_code}</span>}
+                    {p.brand} · {p.subcategories?.categories?.name} › {p.subcategories?.name}
+                  </div>
                   <div className="admin-mobile-card-meta">
                     <span className="admin-mobile-card-price">₹{p.price?.toLocaleString()}</span>
                     {p.badge && <span className="admin-badge admin-badge-blue">{p.badge}</span>}

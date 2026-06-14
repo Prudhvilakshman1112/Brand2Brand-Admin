@@ -15,7 +15,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('products')
       .select(`
-        id, name, brand, price, badge, is_active, created_at,
+        id, name, brand, price, badge, is_active, created_at, product_code,
         subcategories ( name, category_id, categories ( id, name ) ),
         product_images ( id, image_url, display_order, color_tag )
       `)
