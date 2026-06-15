@@ -4,6 +4,8 @@ const nextConfig = {
 
   // Allow Cloudinary + Supabase images
   images: {
+    imageSizes: [128, 256, 384],
+    deviceSizes: [640, 768, 1024, 1280],
     remotePatterns: [
       {
         protocol: 'https',
