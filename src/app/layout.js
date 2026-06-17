@@ -27,8 +27,8 @@ export default async function RootLayout({ children }) {
   // safety net in case middleware is bypassed (e.g. direct fetch, curl, etc.)
   if (!user) {
     return (
-      <html lang="en">
-        <body style={{ margin: 0, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <html lang="en" suppressHydrationWarning>
+        <body style={{ margin: 0, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }} suppressHydrationWarning>
           {children}
         </body>
       </html>
@@ -36,8 +36,8 @@ export default async function RootLayout({ children }) {
   }
 
   return (
-    <html lang="en">
-      <body style={{ margin: 0, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    <html lang="en" suppressHydrationWarning>
+      <body style={{ margin: 0, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }} suppressHydrationWarning>
         <AdminLayoutClient user={user}>
           {children}
         </AdminLayoutClient>
