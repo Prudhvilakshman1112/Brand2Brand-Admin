@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, use } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { compressImage, formatBytes } from '@/lib/compressImage';
-import { uploadToCloudinaryDirect } from '@/lib/cloudinaryDirect';
+import { uploadToR2Direct } from '@/lib/r2Direct';
 
 function getSizePreset(subcategoryName) {
   const n = (subcategoryName || '').toLowerCase();
@@ -191,7 +191,8 @@ export default function AdminEditProductPage({ params }) {
           if (!img.file) continue;
           try {
             setUploadProgress(`Uploading image ${i + 1}/${newImages.length}...`);
-            const result = await uploadToCloudinaryDirect(img.file, folder, `${Date.now()}_${i}`);
+            const ext = img.file.name.split('.').pop();
+            const result = await uploadToR2Direct(img.file, folder, `${Date.now()}_${i}.${ext}`);
 
             await fetch('/api/save-image', {
               method: 'POST',

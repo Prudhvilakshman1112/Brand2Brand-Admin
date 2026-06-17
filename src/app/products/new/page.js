@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { compressImage, formatBytes } from '@/lib/compressImage';
-import { uploadToCloudinaryDirect } from '@/lib/cloudinaryDirect';
+import { uploadToR2Direct } from '@/lib/r2Direct';
 
 // ── Size presets by subcategory keyword ─────────────────────────────────────
 function getSizePreset(subcategoryName) {
@@ -187,7 +187,8 @@ export default function AdminNewProductPage() {
       if (coverImage?.file) {
         try {
           setUploadProgress(`Uploading cover image (1/${totalImages})...`);
-          const result = await uploadToCloudinaryDirect(coverImage.file, folder, 'cover');
+          const ext = coverImage.file.name.split('.').pop();
+          const result = await uploadToR2Direct(coverImage.file, folder, `cover.${ext}`);
 
           // Save image URL to database
           await fetch('/api/save-image', {
@@ -217,7 +218,8 @@ export default function AdminNewProductPage() {
         if (!img.file) continue;
         try {
           setUploadProgress(`Uploading image ${completedImages + 1}/${totalImages}...`);
-          const result = await uploadToCloudinaryDirect(img.file, folder, `variant_${i + 1}`);
+          const ext = img.file.name.split('.').pop();
+          const result = await uploadToR2Direct(img.file, folder, `variant_${i + 1}.${ext}`);
 
           await fetch('/api/save-image', {
             method: 'POST',
